@@ -93,47 +93,26 @@ def ask(question: str, history: list[dict[str, str]] | None = None, history_path
         CONVERSATION_HISTORY[:] = history
 
     client = genai.Client(api_key=get_api_key())
-    response = client.models.generate_content(model=MODEL, contents=_to_contents(history, question))
+    response = client.models.generate_content(model=MODEL, contents=question)
 
-    usage = getattr(response, "usage_metadata", None)
-    input_tokens = getattr(usage, "prompt_token_count", None)
-    output_tokens = getattr(usage, "candidates_token_count", None)
-    print(f"[input tokens] {input_tokens if input_tokens is not None else 'N/A'}")
-    print(f"[output tokens] {output_tokens if output_tokens is not None else 'N/A'}")
+    # TODO(第1回 演習): response.usage_metadata から
+    #   入力トークン数と出力トークン数を表示してみよう（Copilotに頼んでよい）
 
-    answer = response.text
-    updated_history = history + [
-        {"role": "user", "content": question},
-        {"role": "assistant", "content": answer},
-    ]
-    CONVERSATION_HISTORY[:] = updated_history
-    if history_path is not None or history is None:
-        _save_history(updated_history, history_path)
-
-    return answer
+    return response.text
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="素のLLMに質問する")
-    parser.add_argument("question", nargs="*", default=[DEFAULT_QUESTION])
-    parser.add_argument("--reset-history", action="store_true", help="会話履歴をリセットする")
-    parser.add_argument("--history-file", default=str(DEFAULT_HISTORY_PATH), help="会話履歴を保存する JSON ファイル")
+    parser.add_argument("question", nargs="?", default=DEFAULT_QUESTION)
     args = parser.parse_args()
 
-    history_path = Path(args.history_file)
-    if args.reset_history:
-        CONVERSATION_HISTORY.clear()
-        if history_path.exists():
-            history_path.unlink()
-
     print(f"[model] {MODEL}")
-    for index, question in enumerate(args.question, start=1):
-        print(f"[質問 {index}/{len(args.question)}] {question}\n")
-        try:
-            print(ask(question, history_path=history_path))
-        except errors.APIError as e:
-            print(api_error_message(e.code, e.message))
-            raise SystemExit(1)
+    print(f"[質問] {args.question}\n")
+    try:
+        print(ask(args.question))
+    except errors.APIError as e:
+        print(api_error_message(e.code, e.message))
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
